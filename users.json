@@ -1,6 +1,3 @@
-[
-  {
-    "username": "pranav",
-    "password": "1234"
-  }
-]
+{
+  "pranav": "1234"
+}

@@ -1,4 +1,6 @@
 import streamlit as st
+st.set_page_config(page_title="AI Style Transfer", layout="wide")
+
 import tensorflow as tf
 import tensorflow_hub as hub
 import numpy as np
@@ -12,12 +14,9 @@ def check_login(username, password):
     try:
         with open("users.json") as f:
             users = json.load(f)
-        for user in users:
-            if user["username"] == username and user["password"] == password:
-                return True
+        return users.get(username) == password
     except:
         return False
-    return False
 
 st.sidebar.title("🔐 Login")
 
@@ -29,8 +28,6 @@ if not check_login(username, password):
     st.stop()
 
 # ---------------- UI ----------------
-st.set_page_config(page_title="AI Style Transfer", layout="wide")
-
 st.markdown("""
 <style>
 .title {
@@ -75,7 +72,7 @@ st.sidebar.title("⚙️ Controls")
 
 content_file = st.sidebar.file_uploader("Upload Image", type=["jpg", "png"])
 style_option = st.sidebar.selectbox("Choose Style", list(style_map.keys()))
-apply = st.sidebar.button("Apply Style")
+apply = st.sidebar.button("🚀 Apply Style")
 
 # ---------------- MODEL ----------------
 @st.cache_resource
@@ -87,10 +84,14 @@ model = load_model()
 # ---------------- PROCESS ----------------
 if content_file and apply:
 
+    if not os.path.exists(style_map[style_option]):
+        st.error("❌ Style image not found!")
+        st.stop()
+
     content = load_image(content_file)
     style = load_image(style_map[style_option])
 
-    with st.spinner("Processing..."):
+    with st.spinner("🎨 Applying AI magic..."):
         output = model(tf.constant(content), tf.constant(style))[0]
 
     output_img = tf.keras.preprocessing.image.array_to_img(output[0])
@@ -99,26 +100,41 @@ if content_file and apply:
     col1, col2 = st.columns(2)
 
     with col1:
-        st.image(content_file, caption="Original")
+        st.subheader("📸 Original")
+        st.image(content_file, use_container_width=True)
 
     with col2:
-        st.image(output_img, caption="Styled")
+        st.subheader("✨ Stylized")
+        st.image(output_img, use_container_width=True)
 
-    # SAVE HISTORY (auto folder create)
+    # 💾 SAVE HISTORY
     os.makedirs("history", exist_ok=True)
     output_path = f"history/{username}_{style_option}.png"
     output_img.save(output_path)
 
-    # DOWNLOAD
+    # 📥 DOWNLOAD
     buf = io.BytesIO()
     output_img.save(buf, format="PNG")
 
-    st.download_button("Download Image", data=buf.getvalue(), file_name="output.png")
+    st.download_button(
+        "📥 Download Image",
+        data=buf.getvalue(),
+        file_name="styled_image.png",
+        mime="image/png"
+    )
 
 # ---------------- HISTORY ----------------
-st.subheader("📂 History")
+st.divider()
+st.subheader("📂 Your History")
 
 if os.path.exists("history"):
-    for file in os.listdir("history"):
-        if file.startswith(username):
-            st.image(f"history/{file}", width=200)
+    files = os.listdir("history")
+    user_files = [f for f in files if f.startswith(username)]
+
+    if user_files:
+        cols = st.columns(3)
+        for i, file in enumerate(user_files):
+            with cols[i % 3]:
+                st.image(f"history/{file}", use_container_width=True)
+    else:
+        st.info("No history yet 🚀")
